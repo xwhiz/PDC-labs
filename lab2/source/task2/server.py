@@ -1,109 +1,67 @@
-from typing import Any, Optional
-from dataclasses import dataclass
 import socket
 import json
-from uuid import uuid4
-import time
 
 
-@dataclass
-class User:
-    id: Optional[str]
-    name: Optional[str]
-    address: Any
+class Server:
+    def __init__(self, port):
+        self.server_address = ("0.0.0.0", port)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(self.server_address)
+        self.users = {}  # Store connected users: {user_id: (name, address)}
+        self.rooms = {}  # Store rooms information.
+        self.message_queue = {}  # Store messages for each user.
 
-
-class ChatServer:
-    def __init__(self, ip: str = "0.0.0.0", port: int = 2055):
-        print("Initializing server")
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind((ip, port))
-        print(f"Server Listening on {ip}:{port}")
-
-        self.users: list[User] = []
-
-    def listen(self):
-        print("Listening to receive messages")
+    def handle_client(self):
         while True:
-            message, address = self.socket.recvfrom(1024)
-            message = message.decode()
-            body = json.loads(message)
-            print(f"Received from {address=} {body=}")
+            data, addr = self.sock.recvfrom(1024)
+            try:
+                message = json.loads(data.decode())
+                request = message.get("request")
 
-            request_type = body.get("request")
+                if request == "register":
+                    user_id = message["id"]
+                    name = message["name"]
+                    self.users[user_id] = (name, addr)
+                    # Optionally send an acknowledgement back to the client.
+                    self.sock.sendto(json.dumps({"status": "success"}).encode(), addr)
 
-            if not request_type:
-                self.socket.sendto(
-                    json.dumps({"success": False, "message": "Invalid request"})
-                )
-                continue
+                elif request == "list-users":
+                    user_list = [
+                        {"id": user_id, "name": name}
+                        for user_id, (name, _) in self.users.items()
+                    ]
+                    response = {"success": True, "message": user_list}
+                    self.sock.sendto(json.dumps(response).encode(), addr)
 
-            if request_type == "create-room":
-                self.create_room(body, address)
-            elif request_type == "send-message":
-                self.send_message(body)
-            elif request_type == "list-rooms":
-                self.socket.sendto(
-                    json.dumps(
-                        {
-                            "success": True,
-                            "message": "\n".join(
-                                [
-                                    "%-6s\t%s" % (room.room_id, room.name)
-                                    for room in self.rooms
-                                ]
-                            ),
-                        }
-                    ).encode(),
-                    address,
-                )
-            elif request_type == "room-exists":
-                self.socket.sendto(
-                    json.dumps(
-                        {
-                            "success": True,
-                            "exists": any(
-                                room.room_id == body.get("room_id")
-                                for room in self.rooms
-                            ),
-                        }
-                    ).encode(),
-                    address,
-                )
-            elif request_type == "subscribe":
-                self.subscribe_user(body, address)
-            elif request_type == "unsubscribe":
-                self.unsubscribe_user(body)
-            else:
-                pass
+                elif request == "send-private-message":
+                    sender_id = message["id"]
+                    sender_name = self.users[sender_id][0]
+                    target_user_id = message["target_user_id"]
+                    message_content = message["message"]
 
-    def send_message(self, body: dict):
-        user_name = body["user_name"] or ""
-        room_id = body["room_id"] or ""
-        message = body["message"] or ""
+                    if target_user_id in self.users:
+                        target_address = self.users[target_user_id][1]
+                        response = {"user": sender_name, "message": message_content}
+                        self.sock.sendto(json.dumps(response).encode(), target_address)
 
-        for room in self.rooms:
-            if room.room_id == room_id:
-                room.publish({"user": user_name, "message": message})
+                        # Send the same message back to the sender for their chat window
+                        self.sock.sendto(
+                            json.dumps(response).encode(), self.users[sender_id][1]
+                        )
 
-    def subscribe_user(self, payload, address):
-        user = User(payload["id"], payload["name"], address)
+                    else:
+                        response = {"success": False, "message": "User not found."}
+                        self.sock.sendto(json.dumps(response).encode(), addr)
 
-        for room in self.rooms:
-            if room.room_id == payload["room_id"]:
-                room.add_user(user)
-                break
+                # ... (Other request handling if needed)
 
-    def unsubscribe_user(self, payload: dict):
-        user_id = payload.get("id") or ""
-        room_id = payload.get("room_id") or ""
-
-        for room in self.rooms:
-            if room.room_id == room_id:
-                room.remove_user(user_id)
-                break
+            except json.JSONDecodeError:
+                print("Invalid JSON received.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
 
 
 if __name__ == "__main__":
-    server = ChatServer()
-    server.listen()
+    server = Server(2055)
+    print("Server started. Listening for connections...")
+    server.handle_client()
