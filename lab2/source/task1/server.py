@@ -1,9 +1,8 @@
 import socket
-from chatroom import ChatRoom
 import json
 from uuid import uuid4
-import time
 
+from chatroom import ChatRoom
 from user import User
 
 
