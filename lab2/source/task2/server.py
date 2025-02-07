@@ -22,7 +22,6 @@ class Server:
                     user_id = message["id"]
                     name = message["name"]
                     self.users[user_id] = (name, addr)
-                    # Optionally send an acknowledgement back to the client.
                     self.sock.sendto(json.dumps({"status": "success"}).encode(), addr)
 
                 elif request == "list-users":
@@ -52,8 +51,6 @@ class Server:
                     else:
                         response = {"success": False, "message": "User not found."}
                         self.sock.sendto(json.dumps(response).encode(), addr)
-
-                # ... (Other request handling if needed)
 
             except json.JSONDecodeError:
                 print("Invalid JSON received.")
