@@ -12,12 +12,12 @@ class Client:
         self.id = id
         self.con = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def request_to_create_room(self, room_name: str) -> int:
+    def request_to_create_room(self, room_name: str) -> str:
         body = {
-            "name": self.name,
-            "id": self.id,
+            "user_name": self.name,
+            "user_id": self.id,
             "request": "create-room",
-            "name": room_name,
+            "room_name": room_name,
         }
         self.con.sendto(json.dumps(body).encode(), Client.server_address)
 
@@ -67,11 +67,11 @@ class Client:
         }
         self.con.sendto(json.dumps(body).encode(), Client.server_address)
 
-        data, _ = self.con.recvfrom(1024)
-        response = json.loads(data.decode())
+        # data, _ = self.con.recvfrom(1024)
+        # response = json.loads(data.decode())
 
-        if response.get("success"):
-            print(response.get("message"))
+        # if response.get("success"):
+        #     print(response.get("message"))
 
     def list_chat_rooms(self):
         body = {"name": self.name, "id": self.id, "request": "list-rooms"}
@@ -103,15 +103,13 @@ class Client:
     def log_messages(self, room_id: int, stop_event: th.Event):
         print("Logging messages...")
 
-        # while True:
-        #     if stop_event.is_set():
-        #         return
+        while True:
+            if stop_event.is_set():
+                return
 
-        #     self.con.sendto("/".encode(), Client.server_address)
-
-        #     data, _ = self.con.recvfrom(1024)
-        #     response = json.loads(data)
-        #     print(f"[{response['user']}: {response['message']}]")
+            data, _ = self.con.recvfrom(1024)
+            response = json.loads(data)
+            print(f"\r[{response['user']}]: {response['message']}\n")
 
 
 if __name__ == "__main__":
@@ -127,9 +125,9 @@ if __name__ == "__main__":
         if not is_chatting:
             print(
                 """\nPlease select one of the option:
-                1. Create a chatroom
-                2. List Chatrooms
-                3. Join a chatroom"""
+    1. Create a chatroom
+    2. List Chatrooms
+    3. Join a chatroom"""
             )
             choice = input("> ")
             if choice == "1":
