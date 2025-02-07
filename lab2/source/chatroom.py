@@ -12,7 +12,17 @@ class ChatRoom:
 
     def add_user(self, user: User):
         self.users.append(user)
-        self.publish({"user": "CHAT", "message": f"{user.name} joined the room."})
+        self.publish({"user": self.name, "message": f"{user.name} joined the room."})
+
+    def remove_user(self, user_id: str):
+        cur_user = self.users[0]
+        for user in self.users:
+            if user.id == user_id:
+                user = cur_user
+                break
+
+        self.users.remove(user)
+        self.publish({"user": self.name, "message": f"{user.name} left the room."})
 
     def publish(self, payload: dict):
         for user in self.users:

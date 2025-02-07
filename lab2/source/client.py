@@ -12,6 +12,9 @@ class Client:
         self.id = id
         self.con = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+    def reinit_connection(self):
+        self.con = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
     def request_to_create_room(self, room_name: str) -> str:
         body = {
             "user_name": self.name,
@@ -26,10 +29,10 @@ class Client:
 
         if response.get("success", None):
             return response.get("room_id")
-        else:
-            return None
 
-    def subscribe(self, room_id: int):
+        return ""
+
+    def subscribe(self, room_id: str):
         body = {
             "name": self.name,
             "id": self.id,
@@ -43,7 +46,7 @@ class Client:
 
         print(f"Joined the room with {room_id=}")
 
-    def unsubscribe(self, room_id: int):
+    def unsubscribe(self, room_id: str):
         body = {
             "name": self.name,
             "id": self.id,
@@ -52,14 +55,9 @@ class Client:
         }
         self.con.sendto(json.dumps(body).encode(), Client.server_address)
 
-        data, _ = self.con.recvfrom(1024)
-        response = json.loads(data.decode())
-
-        print(f"Unsubscribed the room with {room_id=}")
-
     def send_to_room(self, room_id: int, message: str):
         body = {
-            "name": self.name,
+            "user_name": self.name,
             "id": self.id,
             "request": "send-message",
             "room_id": room_id,
@@ -81,9 +79,10 @@ class Client:
         response = json.loads(data.decode())
 
         if response.get("success"):
+            print("%-6s\t%s" % ("ID", "Room Name"))
             print(response.get("message"))
 
-    def room_exists(self, room_id: int) -> bool:
+    def room_exists(self, room_id: str) -> bool:
         body = {
             "name": self.name,
             "id": self.id,
@@ -107,9 +106,12 @@ class Client:
             if stop_event.is_set():
                 return
 
-            data, _ = self.con.recvfrom(1024)
-            response = json.loads(data)
-            print(f"\r[{response['user']}]: {response['message']}\n")
+            try:
+                data, _ = self.con.recvfrom(1024)
+                response = json.loads(data)
+                print(f"\r[{response['user']}]: {response['message']}\n> ", end="")
+            except OSError:
+                pass
 
 
 if __name__ == "__main__":
@@ -168,15 +170,17 @@ if __name__ == "__main__":
                 print("Please select one of the options only.")
                 continue
         else:
-            message = input("Message: ")
+            message = input("> ")
             if message == "exit":
                 print("Leaving the room...")
-                client.unsubscribe(joined_room_id)
+                client.unsubscribe(joined_room_id or "")
                 joined_room_id = None
                 is_chatting = False
                 stop_event.set()
+                client.con.close()
                 update_thread.join()
-                print(f"You left the room with {room_id=}")
+                print(f"\nYou left the room with {room_id=}")
+                client.reinit_connection()
                 continue
 
             client.send_to_room(joined_room_id, message)

@@ -40,7 +40,38 @@ class ChatServer:
                 self.create_room(body, address)
             elif request_type == "send-message":
                 self.send_message(body)
+            elif request_type == "list-rooms":
+                self.socket.sendto(
+                    json.dumps(
+                        {
+                            "success": True,
+                            "message": "\n".join(
+                                [
+                                    "%-6s\t%s" % (room.room_id, room.name)
+                                    for room in self.rooms
+                                ]
+                            ),
+                        }
+                    ).encode(),
+                    address,
+                )
+            elif request_type == "room-exists":
+                self.socket.sendto(
+                    json.dumps(
+                        {
+                            "success": True,
+                            "exists": any(
+                                room.room_id == body.get("room_id")
+                                for room in self.rooms
+                            ),
+                        }
+                    ).encode(),
+                    address,
+                )
+            elif request_type == "subscribe":
                 pass
+            elif request_type == "unsubscribe":
+                self.unsubscribe_user(body)
             else:
                 pass
 
@@ -67,6 +98,24 @@ class ChatServer:
         room = ChatRoom(room_id, room_name, self.socket)
         self.rooms.append(room)
         room.add_user(user)
+
+    def send_message(self, body: dict):
+        user_name = body["user_name"] or ""
+        room_id = body["room_id"] or ""
+        message = body["message"] or ""
+
+        for room in self.rooms:
+            if room.room_id == room_id:
+                room.publish({"user": user_name, "message": message})
+
+    def unsubscribe_user(self, payload: dict):
+        user_id = payload.get("id") or ""
+        room_id = payload.get("room_id") or ""
+
+        for room in self.rooms:
+            if room.room_id == room_id:
+                room.remove_user(user_id)
+                break
 
 
 if __name__ == "__main__":
