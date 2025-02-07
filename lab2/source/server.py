@@ -12,7 +12,7 @@ def generate_unique_id() -> str:
 
 
 class ChatServer:
-    def __init__(self, ip: str = "127.0.0.1", port: int = 2055):
+    def __init__(self, ip: str = "0.0.0.0", port: int = 2055):
         print("Initializing server")
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind((ip, port))

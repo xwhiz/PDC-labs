@@ -1,11 +1,11 @@
 import socket
-import random
 import json
+from uuid import uuid4
 import threading as th
 
 
 class Client:
-    server_address = ("127.0.0.1", 2055)
+    server_address = ("0.0.0.0", 2055)
 
     def __init__(self, name: str, id: str):
         self.name = name
@@ -60,12 +60,6 @@ class Client:
         }
         self.con.sendto(json.dumps(body).encode(), Client.server_address)
 
-        # data, _ = self.con.recvfrom(1024)
-        # response = json.loads(data.decode())
-
-        # if response.get("success"):
-        #     print(response.get("message"))
-
     def list_chat_rooms(self):
         body = {"name": self.name, "id": self.id, "request": "list-rooms"}
         self.con.sendto(json.dumps(body).encode(), Client.server_address)
@@ -110,8 +104,8 @@ class Client:
 
 
 if __name__ == "__main__":
-    name = "Hamza"
-    user_id = str(random.randint(0, 10))
+    name = input("Enter your name: ")
+    user_id = str(uuid4()).split("-")[1]
     client = Client(name, user_id)
     joined_room_id = None
     is_chatting = False
@@ -124,9 +118,13 @@ if __name__ == "__main__":
                 """\nPlease select one of the option:
     1. Create a chatroom
     2. List Chatrooms
-    3. Join a chatroom"""
+    3. Join a chatroom
+    q. Exit"""
             )
-            choice = input("> ")
+            choice = input("> ").lower()
+            if choice == "q":
+                print("Quitting the application...")
+                exit()
             if choice == "1":
                 room_name = input("Enter room name: ")
                 room_id = client.request_to_create_room(room_name)
