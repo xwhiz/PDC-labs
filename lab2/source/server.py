@@ -69,7 +69,7 @@ class ChatServer:
                     address,
                 )
             elif request_type == "subscribe":
-                pass
+                self.subscribe_user(body, address)
             elif request_type == "unsubscribe":
                 self.unsubscribe_user(body)
             else:
@@ -107,6 +107,14 @@ class ChatServer:
         for room in self.rooms:
             if room.room_id == room_id:
                 room.publish({"user": user_name, "message": message})
+
+    def subscribe_user(self, payload, address):
+        user = User(payload["id"], payload["name"], address)
+
+        for room in self.rooms:
+            if room.room_id == payload["room_id"]:
+                room.add_user(user)
+                break
 
     def unsubscribe_user(self, payload: dict):
         user_id = payload.get("id") or ""

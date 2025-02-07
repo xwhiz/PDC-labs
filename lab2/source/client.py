@@ -41,11 +41,6 @@ class Client:
         }
         self.con.sendto(json.dumps(body).encode(), Client.server_address)
 
-        data, _ = self.con.recvfrom(1024)
-        response = json.loads(data.decode())
-
-        print(f"Joined the room with {room_id=}")
-
     def unsubscribe(self, room_id: str):
         body = {
             "name": self.name,
@@ -55,7 +50,7 @@ class Client:
         }
         self.con.sendto(json.dumps(body).encode(), Client.server_address)
 
-    def send_to_room(self, room_id: int, message: str):
+    def send_to_room(self, room_id: str, message: str):
         body = {
             "user_name": self.name,
             "id": self.id,
@@ -161,6 +156,7 @@ if __name__ == "__main__":
 
                 client.subscribe(room_id)
                 joined_room_id = room_id
+                is_chatting = True
                 stop_event.clear()
                 update_thread = th.Thread(
                     target=(client.log_messages), args=(room_id, stop_event)
@@ -178,9 +174,9 @@ if __name__ == "__main__":
                 is_chatting = False
                 stop_event.set()
                 client.con.close()
-                update_thread.join()
+                update_thread.join()  # type: ignore
                 print(f"\nYou left the room with {room_id=}")
                 client.reinit_connection()
                 continue
 
-            client.send_to_room(joined_room_id, message)
+            client.send_to_room(joined_room_id or "", message)
